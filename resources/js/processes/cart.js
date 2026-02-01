@@ -16,6 +16,7 @@ export function renderCart() {
     cart.forEach((item, i) => {
         tbody.innerHTML += `
             <tr>
+            <td>${i + 1}</td>
             <td>
                 ${item.process_text} <br>
                 <small class="text-muted">📅 ${item.date}</small>

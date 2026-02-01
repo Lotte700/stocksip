@@ -50,6 +50,7 @@
         <table class="table table-bordered mt-3" id="cartTable">
             <thead class="table-light">
                 <tr>
+                    <th>Number</th>
                     <th>Process</th>
                     <th>type size</th>
                     <th>Qty</th>
