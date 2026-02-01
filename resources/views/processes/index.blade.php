@@ -55,7 +55,8 @@
                                             <tr>
                                                 <td class="ps-4">
                                                     <strong>{{ $process->productUnit->product->name }}</strong><br>
-                                                    <small class="text-muted">{{ $process->productUnit->name }}</small>
+                                                    <small class="text-muted"> {{ $process->productUnit->product->description }} <strong>{{ $process->productUnit->name }}</strong></small>
+                                                    
                                                 </td>
                                                 <td>{{ $process->employee->name }}</td>
                                                 <td class="text-center fw-bold text-primary">{{ $process->quantity }}</td>
@@ -102,8 +103,11 @@
                         @forelse($otherProcesses as $process)
                             <tr>
                                 <td class="ps-4 small text-muted">{{ \Carbon\Carbon::parse($process->created_at)->format('H:i') }}</td>
-                                <td><strong>{{ $process->productUnit->product->name }}</strong></td>
-                                <td><span class="badge bg-info text-dark">{{ strtoupper($process->process->name) }}</span></td>
+                                <td><strong>{{ $process->productUnit->product->name }}</strong>
+                                <small class="text-muted"> {{ $process->productUnit->product->description }} <strong>{{ $process->productUnit->name }}</strong></small>
+                                </td>
+                                <td><span class="badge bg-info text-dark">{{ strtoupper($process->process->name) }}</span>
+                                </td>
                                 <td class="small">{{ $process->outlet->name }}</td>
                                 <td>{{ $process->employee->name }}</td>
                                 <td class="text-center fw-bold">{{ $process->quantity }}</td>
