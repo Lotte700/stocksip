@@ -172,7 +172,7 @@ $lowStockProducts = $inventoryBalances->filter(function($item) {
     
     // 2. ปรับมูลค่าเพิ่มขึ้น หรือ "ไม่เช็คมูลค่า" สำหรับรายการที่จำนวนน้อยจริงๆ
     // ลองปรับเป็น 15,000 หรือตัดเงื่อนไขมูลค่าออกถ้าต้องการนับทุกอย่างที่เหลือน้อย
-    $isLowValue = ($item->current_balance * $item->price) < 15000; 
+    $isLowValue = ($item->current_balance * $item->price) < 5000; 
 
     return $isLowQuantity && $isLowValue;
 })->count();
