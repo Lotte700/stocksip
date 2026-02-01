@@ -102,6 +102,7 @@ class InventoryController extends Controller
                 return [
                     'product_id'    => $product->id,
                     'product_name'  => $product->name,
+                    'product_description' => $product->description,
                     'category_name' => $product->category->category_name ?? 'Uncategorized',
                     'base_ratio'    => $ratio,
                     'opening'       => $convertMlToUnits($openingMl),

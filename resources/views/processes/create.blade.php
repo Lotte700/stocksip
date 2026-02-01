@@ -31,7 +31,7 @@
             <option></option> {{-- สำคัญมาก: ต้องมีเพื่อแสดง Placeholder --}}
             @foreach($product_units as $u)
                 <option value="{{ $u->id }}">
-                    {{ $u->product->name }} - {{ $u->name }}
+                    {{ $u->product->name }} {{ $u->product->description }} - {{ $u->name }} 
                 </option>
             @endforeach
         </select>
@@ -51,7 +51,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Process</th>
-                    <th>Product</th>
+                    <th>type size</th>
                     <th>Qty</th>
                     <th width="80">Remove</th>
                 </tr>

@@ -9,7 +9,7 @@
     <label class="form-label fw-bold">Search Product Name</label>
     <select name="product_id" class="form-control select2">
     <option></option> @foreach($summary as $product)
-        <option value="{{ $product['product_id'] }}">{{ $product['product_name'] }}</option>
+        <option value="{{ $product['product_id'] }}">{{ $product['product_name'] }} - {{ $product['product_description'] }}</option>
     @endforeach
 </select>
 </div>
@@ -63,6 +63,7 @@
                                 {{ $row['product_name'] }}
                             </a><br>
                             <small class="text-muted">{{ $row['category_name'] }}</small>
+                            <small class="text-muted">{{ $row['product_description'] }}</small>
 
                         </td>
                         <td class="text-center bg-light">{!! format_inventory_balance($row['opening'], $row['base_ratio']) !!}</td>
