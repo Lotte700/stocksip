@@ -16,6 +16,8 @@ class InventoryController extends Controller
         $outletId = Auth::user()->employee->outlet_id;
 
         $productId = $request->get('product_id');
+
+        $lowStockIds = $request->get('low_stock_ids');
         
         // 1. รับค่าจาก Filter
         $month = $request->get('month', now()->format('Y-m'));
@@ -28,22 +30,30 @@ class InventoryController extends Controller
 
         // 2. ดึงข้อมูล Inventory พร้อม Eager Loading ให้ครบชั้น
         $inventories = Inventory::with([
-                'productUnit.product.category', 
-                'productUnit.product.productUnits', // ดึงหน่วยพี่น้องทั้งหมดมาคำนวณ Ratio
-                'process'
-            ])
-            ->where('status', 'approved')
-            ->where('outlet_id', $outletId)
-            ->whereHas('productUnit.product', function ($query) use ($categoryId) {
-                $query->when($categoryId, function ($q) use ($categoryId) {
-                    $q->where('category_id', $categoryId);
-                });
-            })->when($productId, function ($query) use ($productId) { // 👈 กรองสินค้าถ้ามีการค้นหา
-            $query->whereHas('productUnit', function ($q) use ($productId) {
-                $q->where('product_id', $productId);
-            });
-        })
-            ->get();
+        'productUnit.product.category', 
+        'productUnit.product.productUnits', 
+        'process'
+    ])
+    ->where('status', 'approved')
+    ->where('outlet_id', $outletId)
+    ->whereHas('productUnit.product', function ($query) use ($categoryId, $lowStockIds) {
+        // กรองตามหมวดหมู่
+        $query->when($categoryId, function ($q) use ($categoryId) {
+            $q->where('category_id', $categoryId);
+        });
+
+        // กรองสินค้าที่ติด Low Stock Alert (กรองที่ ID ของ Product)
+        $query->when($lowStockIds, function ($q) use ($lowStockIds) {
+            $q->whereIn('id', (array)$lowStockIds); // cast เป็น array เพื่อความชัวร์
+        });
+    })
+    // กรองตามสินค้าที่เลือกเจาะจง (ถ้ามี)
+    ->when($productId, function ($query) use ($productId) {
+        $query->whereHas('productUnit', function ($q) use ($productId) {
+            $q->where('product_id', $productId);
+        });
+    })
+    ->get();
 
         // 3. จัดกลุ่มและคำนวณ Summary
         $summary = $inventories

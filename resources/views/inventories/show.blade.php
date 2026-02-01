@@ -52,6 +52,7 @@
 @php
     // เริ่มต้น Running Map ด้วยค่า Opening จาก Controller
     $runningMap = is_array($openingBalance) ? $openingBalance : $openingBalance->toArray(); 
+    
 @endphp
 
 @foreach($inMonth as $date => $rows)
@@ -114,4 +115,5 @@
         </div>
     </div>
 </div>
+
 @endsection

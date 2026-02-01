@@ -93,109 +93,79 @@ public function salesReport(Request $request)
 
 public function index()
 {
-    // 1. Pending Approvals
-    $pendingApprovalsCount = Inventory::where('process_id', '!=', 1)
-    ->where('process_id', '!=', 4)
-    ->where('status', 'pending')
-    ->where('outlet_id', '=', Auth::user()->employee->outlet_id)
-    ->count();
+    $outletId = Auth::user()->employee->outlet_id;
 
-    // 2. Today's Revenue
+    // 1. Pending Approvals (จำนวนรายการรออนุมัติ)
+    $pendingApprovalsCount = Inventory::where('process_id', '!=', 1)
+        ->where('process_id', '!=', 4)
+        ->where('status', 'pending')
+        ->where('outlet_id', $outletId)
+        ->count();
+
+    // 2. Today's Revenue (รายได้วันนี้)
     $todayRevenue = Inventory::where('inventories.status', 'approved')
         ->whereRaw('DATE(inventories.created_at) = ?', [\Carbon\Carbon::now('Asia/Bangkok')->format('Y-m-d')])
         ->where('inventories.process_id', '=', 1)
-        ->where('inventories.outlet_id', '=', Auth::user()->employee->outlet_id)
+        ->where('inventories.outlet_id', $outletId)
         ->join('product_units', 'inventories.product_unit_id', '=', 'product_units.id')
         ->sum(DB::raw('ABS(inventories.quantity) * product_units.price'));
 
-    // --- ส่วนที่แก้ไขใหม่: คำนวณ Balance จากตาราง Inventories ---
-    
-    // ดึงยอดคงเหลือของทุก Product Unit (Sum quantity เฉพาะรายการที่ approved)
+    // 3. คำนวณยอดคงเหลือราย Product Unit เพื่อหา Total Value และ Low Stock
+    // แก้ไข Group By ให้ครบตามกฎ Strict Mode ของ MySQL
     $inventoryBalances = Inventory::select([
-            'product_unit_id',
+            'product_units.product_id',       // สำคัญ: ต้องมีเพื่อใช้ pluck ID ไปทำ Filter
+            'inventories.product_unit_id',
             'product_units.price',
+            'products.name as product_name',
+            'product_units.name as unit_name',
             DB::raw('SUM(inventories.quantity) as current_balance')
         ])
         ->join('product_units', 'inventories.product_unit_id', '=', 'product_units.id')
+        ->join('products', 'product_units.product_id', '=', 'products.id')
         ->where('inventories.status', 'approved')
-        ->where('inventories.outlet_id', Auth::user()->employee->outlet_id) // 👈 สำคัญ: ต้องระบุสาขาตัวเอง
-        ->groupBy('product_unit_id', 'product_units.price')
+        ->where('inventories.outlet_id', $outletId)
+        ->groupBy(
+            'product_units.product_id', 
+            'inventories.product_unit_id', 
+            'product_units.price', 
+            'products.name', 
+            'product_units.name'
+        )
         ->get();
 
-    $inventoryitems = Inventory::select([
-        'inventories.product_unit_id',
-        'product_units.price',
-        'products.name as product_name', // ดึงชื่อสินค้ามาด้วย
-        'product_units.name as unit_name', // ดึงชื่อหน่วยมาด้วย
-        DB::raw('SUM(inventories.quantity) as current_balance')
-    ])
-    ->join('product_units', 'inventories.product_unit_id', '=', 'product_units.id')
-    ->join('products', 'product_units.product_id', '=', 'products.id') // Join เพิ่มเพื่อให้รู้จัก Item
-    ->whereRaw('DATE(inventories.created_at) = ?', [\Carbon\Carbon::now('Asia/Bangkok')->format('Y-m-d')])
-    ->where('inventories.status', 'approved')
-    ->where('inventories.outlet_id', Auth::user()->employee->outlet_id) // 👈 สำคัญ: ต้องระบุสาขาตัวเอง
-    ->groupBy('inventories.product_unit_id', 'product_units.price', 'products.name', 'product_units.name')
-    ->get();
-
-    // 3. มูลค่าคลังสินค้าทั้งหมด (Sum of balance * price)
+    // 4. มูลค่าคลังสินค้าทั้งหมด (Sum of balance * price)
     $totalInventoryValue = $inventoryBalances->sum(function($item) {
         return $item->current_balance * $item->price;
     });
 
-    // 4. สินค้าที่สต็อกต่ำ (Balance < 5 และ มูลค่ารวม < 5000)
-    // ... โค้ดส่วนอื่นคงเดิม ...
+    // 5. สินค้าที่สต็อกต่ำ (Filter เงื่อนไข: จำนวน < 10 และ มูลค่ารวม < 5000)
+    $lowStockItems = $inventoryBalances->filter(function($item) {
+        $isLowQuantity = $item->current_balance > 0 && $item->current_balance < 10;
+        $isLowValue = ($item->current_balance * $item->price) < 5000; 
+        return $isLowQuantity && $isLowValue;
+    });
 
-// 1. ดึงยอดคงเหลือของทุก Product Unit ทั้งหมดในระบบ (ไม่ต้องระบุวันที่)
-$inventoryBalances = Inventory::select([
-        'inventories.product_unit_id',
-        'product_units.price',
-        'products.name as product_name',
-        'product_units.name as unit_name',
-        DB::raw('SUM(inventories.quantity) as current_balance')
-    ])
-    ->join('product_units', 'inventories.product_unit_id', '=', 'product_units.id')
-    ->join('products', 'product_units.product_id', '=', 'products.id')
-    ->where('inventories.status', 'approved')
-    ->where('inventories.outlet_id', Auth::user()->employee->outlet_id)
-    ->groupBy('inventories.product_unit_id', 'product_units.price', 'products.name', 'product_units.name')
-    ->get();
+    // จำนวนรายการสินค้าที่เตือน (นับจำนวนชุด)
+    $lowStockCount = $lowStockItems->count();
 
-// 2. คำนวณมูลค่าคลังสินค้าทั้งหมด (จากยอดทั้งหมด)
-$totalInventoryValue = $inventoryBalances->sum(function($item) {
-    return $item->current_balance * $item->price;
-});
+    // ดึงเฉพาะ Product IDs เก็บเข้า Array เพื่อส่งไปใช้ในหน้า Report
+    $lowStockIds = $lowStockItems->pluck('product_id')->unique()->toArray();
 
-// 3. คำนวณสินค้าที่สต็อกต่ำ (Filter จากยอดทั้งหมด)
-$lowStockProducts = $inventoryBalances->filter(function($item) {
-    // 1. เช็คว่าเป็นสินค้าที่เหลือน้อยกว่า 10 (และไม่ใช่ค่าติดลบ)
-    $isLowQuantity = $item->current_balance > 0 && $item->current_balance < 10;
-    
-    // 2. ปรับมูลค่าเพิ่มขึ้น หรือ "ไม่เช็คมูลค่า" สำหรับรายการที่จำนวนน้อยจริงๆ
-    // ลองปรับเป็น 15,000 หรือตัดเงื่อนไขมูลค่าออกถ้าต้องการนับทุกอย่างที่เหลือน้อย
-    $isLowValue = ($item->current_balance * $item->price) < 5000; 
-
-    return $isLowQuantity && $isLowValue;
-})->count();
-
-// ... ส่วนที่เหลือส่ง compact ไปที่ View ...
-
-    // --- จบส่วนที่แก้ไข ---
-
-    // 5. Recent Transactions
+    // 6. Recent Transactions (5 รายการล่าสุดที่รออนุมัติ)
     $recentTransactions = Inventory::with(['productUnit.product'])
-    ->where('inventories.status', 'pending')
-    ->where('inventories.outlet_id', '=', Auth::user()->employee->outlet_id)
-    ->where('inventories.process_id', '!=', 3)
-    ->orderBy('inventories.created_at', 'desc')
-    ->latest()
-    ->take(5)
-    ->get();
+        ->where('inventories.status', 'pending')
+        ->where('inventories.outlet_id', $outletId)
+        ->where('inventories.process_id', '!=', 3) // ไม่เอาการตรวจนับ
+        ->orderBy('inventories.created_at', 'desc')
+        ->take(5)
+        ->get();
 
     return view('dashboard.index', compact(
         'pendingApprovalsCount', 
         'todayRevenue', 
         'totalInventoryValue', 
-        'lowStockProducts', 
+        'lowStockCount',    // ใช้ตัวแปรนี้แสดงใน Card
+        'lowStockIds',      // ใช้ตัวแปรนี้สร้าง Link ใน View
         'recentTransactions'
     ));
 }
