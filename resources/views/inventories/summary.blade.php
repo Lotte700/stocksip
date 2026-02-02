@@ -13,6 +13,12 @@
     @endforeach
 </select>
 </div>
+<div class="col-md-2 d-flex align-items-center">
+    <div class="form-check form-switch mt-4">
+        <input class="form-check-input" type="checkbox" name="only_focus" id="onlyFocus" value="1" {{ request('only_focus') ? 'checked' : '' }}>
+        <label class="form-check-label fw-bold" for="onlyFocus">Favorites Only</label>
+    </div>
+</div
 
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Category</label>
@@ -53,6 +59,7 @@
                         <th class="text-center">Request</th>
                         <th class="text-center">Spoil</th>
                         <th class="text-center table-success">Balance</th>
+                        <th class="text-center">Favorite</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -72,11 +79,27 @@
                         <td class="text-center">{!! format_process_units($row['processes']['open'] ?? []) !!}</td>
                         <td class="text-center">{!! format_process_units($row['processes']['spoil'] ?? []) !!}</td>
                         <td class="text-center table-success fw-bold">{!! format_inventory_balance($row['total'], $row['base_ratio']) !!}</td>
-                    </tr>
+                   
+                    <td class="text-center">
+        <button type="button" 
+                class="btn btn-link focus-toggle-btn p-0" 
+                data-product-id="{{ $row['product_id'] }}"
+                data-url="{{ route('focus.toggle') }}"
+                style="font-size: 1.25rem; text-decoration: none;">
+                
+            @if(in_array($row['product_id'], $focusIds))
+                <i class="bi bi-star-fill text-warning"></i>
+            @else
+                <i class="bi bi-star text-muted"></i>
+            @endif
+        </button>
+    </td>
+     </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
 @endsection

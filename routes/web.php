@@ -8,12 +8,13 @@ use App\Http\Controllers\ProcessController;
 use App\Http\Controllers\ProductUnitsController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\SalesChartController;
+use App\Http\Controllers\FocusListController;
 
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-
+Route::post('/focus-list/toggle', [FocusListController::class, 'toggle'])->name('focus.toggle');
 Route::get('/dashboard', [SalesChartController::class, 'index'])
     ->middleware(['auth'])
     ->name('dashboard');

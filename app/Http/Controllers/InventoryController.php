@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FocusList;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Inventory;
 use Illuminate\Http\Request;
@@ -12,9 +13,11 @@ class InventoryController extends Controller
 {
     public function index(Request $request)
     {
-        
+        $onlyFocus = $request->has('only_focus');
         $outletId = Auth::user()->employee->outlet_id;
-
+        $focusIds = FocusList::where('outlet_id', $outletId)
+        ->pluck('product_id')
+        ->toArray();
         $productId = $request->get('product_id');
 
         $lowStockIds = $request->get('low_stock_ids');
@@ -29,25 +32,31 @@ class InventoryController extends Controller
         $categories = Category::orderBy('category_name')->get();
 
         // 2. ดึงข้อมูล Inventory พร้อม Eager Loading ให้ครบชั้น
-        $inventories = Inventory::with([
+       $inventories = Inventory::with([
         'productUnit.product.category', 
         'productUnit.product.productUnits', 
         'process'
     ])
     ->where('status', 'approved')
     ->where('outlet_id', $outletId)
-    ->whereHas('productUnit.product', function ($query) use ($categoryId, $lowStockIds) {
-        // กรองตามหมวดหมู่
+    ->whereHas('productUnit.product', function ($query) use ($categoryId, $lowStockIds, $onlyFocus, $focusIds) {
+        
+        // 1. กรองตามหมวดหมู่
         $query->when($categoryId, function ($q) use ($categoryId) {
             $q->where('category_id', $categoryId);
         });
 
-        // กรองสินค้าที่ติด Low Stock Alert (กรองที่ ID ของ Product)
+        // 2. กรองสินค้าที่ติด Low Stock Alert จาก Dashboard
         $query->when($lowStockIds, function ($q) use ($lowStockIds) {
-            $q->whereIn('id', (array)$lowStockIds); // cast เป็น array เพื่อความชัวร์
+            $q->whereIn('id', (array)$lowStockIds);
         });
+
+        // 3. กรองเฉพาะรายการที่กด Favorite (Focus List)
+        if ($onlyFocus) {
+            $query->whereIn('id', $focusIds);
+        }
     })
-    // กรองตามสินค้าที่เลือกเจาะจง (ถ้ามี)
+    // 4. กรองตามชื่อสินค้าที่เลือกจาก Search/Select2
     ->when($productId, function ($query) use ($productId) {
         $query->whereHas('productUnit', function ($q) use ($productId) {
             $q->where('product_id', $productId);
@@ -124,7 +133,7 @@ class InventoryController extends Controller
                 ];
             })->values();
 
-        return view('inventories.summary', compact('summary', 'month', 'categories', 'categoryId'));
+        return view('inventories.summary', compact('summary', 'month', 'categories', 'categoryId', 'focusIds', 'lowStockIds', 'onlyFocus'));
     }
 
     /**
@@ -134,8 +143,9 @@ class InventoryController extends Controller
      */
  public function show(Request $request, $productId)
 {
+    
     $outletId = Auth::user()->employee->outlet_id;
-
+    
     $month = $request->get('month', now()->format('Y-m'));
     $start = Carbon::parse($month)->startOfMonth();
     $end   = Carbon::parse($month)->endOfMonth();
