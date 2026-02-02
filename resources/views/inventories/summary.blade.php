@@ -13,12 +13,7 @@
     @endforeach
 </select>
 </div>
-<div class="col-md-2 d-flex align-items-center">
-    <div class="form-check form-switch mt-4">
-        <input class="form-check-input" type="checkbox" name="only_focus" id="onlyFocus" value="1" {{ request('only_focus') ? 'checked' : '' }}>
-        <label class="form-check-label fw-bold" for="onlyFocus">Favorites Only</label>
-    </div>
-</div
+
 
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Category</label>
@@ -32,13 +27,20 @@
                     </select>
                 </div>
 
-                <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary me-2">
-                        <i class="bi bi-search"></i> Filter
-                    </button>
-                    <a href="{{ route('inventories.index') }}" class="btn btn-light text-secondary">
-                        Reset
-                    </a>
+                <div class="col-md-5 d-flex align-items-end gap-2">
+    <button type="submit" class="btn btn-primary">
+        <i class="bi bi-search"></i> Filter
+    </button>
+    <a href="{{ route('inventories.index') }}" class="btn btn-light text-secondary">
+        Reset
+    </a>
+
+    <div class="form-check form-switch ms-3 mb-2">
+        <input class="form-check-input" type="checkbox" name="only_focus" id="onlyFocus" value="1" 
+               {{ request('only_focus') ? 'checked' : '' }} onchange="this.form.submit()">
+        <label class="form-check-label fw-bold" for="onlyFocus">Favorites Only</label>
+    </div>
+</div>
                 </div>
             </form>
         </div>
