@@ -138,10 +138,10 @@ public function index()
         return $item->current_balance * $item->price;
     });
 
-    // 5. สินค้าที่สต็อกต่ำ (Filter เงื่อนไข: จำนวน < 10 และ มูลค่ารวม < 5000)
+    // 5. สินค้าที่สต็อกต่ำ (Filter เงื่อนไข: จำนวน < 10 และ มูลค่ารวม < 2000)
     $lowStockItems = $inventoryBalances->filter(function($item) {
         $isLowQuantity = $item->current_balance > 0 && $item->current_balance < 10;
-        $isLowValue = ($item->current_balance * $item->price) < 5000; 
+        $isLowValue = ($item->current_balance * $item->price) < 2000; 
         return $isLowQuantity && $isLowValue;
     });
 
