@@ -53,6 +53,11 @@ class Inventory extends Model
     return $this->belongsTo(ProductUnits::class, 'product_unit_id');
 
 }
+public function approvedBy() // แนะนำให้ใช้ CamelCase ตามมาตรฐาน Laravel
+{
+    // สมมติว่าคอลัมน์ในตาราง inventories คือ approved_by_id หรือ approved_by
+    return $this->belongsTo(\App\Models\User::class, 'approved_by'); 
+}
 
 
 }

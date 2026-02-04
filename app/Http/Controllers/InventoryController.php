@@ -151,7 +151,7 @@ class InventoryController extends Controller
     $end   = Carbon::parse($month)->endOfMonth();
 
     // 1. ดึงข้อมูลพร้อมโหลดความสัมพันธ์
-    $allData = Inventory::with(['productUnit.product.productUnits', 'process'])
+    $allData = Inventory::with(['productUnit.product.productUnits','approvedBy.employee', 'process'])
         ->where('status', 'approved')
         ->where('outlet_id', $outletId)
         ->whereHas('productUnit', fn ($q) => $q->where('product_id', $productId))
