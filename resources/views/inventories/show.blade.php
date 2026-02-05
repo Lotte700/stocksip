@@ -111,21 +111,25 @@
                                 @php
                                     $transferItems = $rows->filter(fn($r) => $r->process && $r->process->name === 'transfer');
                                     $transApprover = $transferItems->whereNotNull('approved_by')->first()?->approvedBy?->employee;
+                                    
+        $transferItems = $rows->filter(fn($r) => $r->process && strtolower($r->process->name) === 'transfer')->unique('id');
+        $myOutletId = Auth::user()->employee->outlet_id;
+
+        // 2. เช็คว่ามีรายการ "โอนออก" ในกลุ่มนี้ไหม
+        $isTransferOut = $transferItems->contains(fn($item) => $item->from_outlet_id == $myOutletId);
                                 @endphp
                                 {!! format_process_units($transferItems->groupBy(fn($r) => $r->productUnit->name)->map(fn($u) => $u->sum('quantity'))) !!}
-                                <br>
-                                <small style="font-size: 0.7rem;">
-                                    @if($transApprover)
-                                        <i class="bi bi-person-check text-info"></i> {{ $transApprover->name }}
-                                        @if($transApprover->outlet_id == Auth::user()->employee->outlet_id)
-                                            <span class="text-muted">(Local)</span>
-                                        @else
-                                            <span class="text-danger">(HQ)</span>
-                                        @endif
-                                    @elseif($transferItems->isNotEmpty())
-                                        <span class="text-danger">Pending</span>
-                                    @endif
-                                </small>
+                                <br>  @foreach($transferItems as $item)
+            <div style="font-size: 0.65rem; line-height: 1.1;" class="mb-1">
+                @if($item->from_outlet_id && $item->from_outlet_id != $myOutletId)
+                    <span class="text-success"><i class="bi bi-arrow-down-left"></i>  {{ $item->fromOutlet->name ?? 'Unknown' }}</span>
+                @elseif($item->from_outlet_id == $myOutletId)
+                    <span class="text-warning"><i class="bi bi-arrow-up-right"></i> {{ $item->outlet->name ?? 'Unknown' }}</span>
+                @endif
+            </div>
+        @endforeach
+
+                                
                             </td>
 
                             {{-- 🟠 ช่อง SPOIL --}}

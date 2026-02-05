@@ -13,8 +13,11 @@
             <select id="process_id_select" class="form-control" required>
                 <option value="">-- Select Process --</option>
                 @foreach($processes as $p)
-                    <option value="{{ $p->id }}">{{ strtoupper($p->name) }}</option>
-                @endforeach
+        {{-- สำคัญมาก: ต้องมี data-name="{{ strtolower($p->name) }}" --}}
+        <option value="{{ $p->id }}" data-name="{{ strtolower($p->name) }}">
+            {{ strtoupper($p->name) }}
+        </option>
+    @endforeach
             </select>
             <div class="col-md-6">
         <label class="fw-bold">Transaction Date</label>
@@ -22,7 +25,18 @@
         <input type="date" id="transaction_date" name="transaction_date" 
                class="form-control" value="{{ date('Y-m-d') }}" required>
     </div>
-
+    {{-- ต้องมี ID ตรงกับที่เรียกใน JS --}}
+<div id="from_outlet_section" style="display: none;">
+    <div class="mb-3">
+        <label class="fw-bold text-primary">From which outlet?</label>
+        <select id="from_outlet_id" class="form-control">
+            <option value="">-- Select Source Outlet --</option>
+            @foreach($outlets as $outlet)
+                <option value="{{ $outlet->id }}">{{ $outlet->name }}</option>
+            @endforeach
+        </select>
+    </div>
+</div>
         </div>
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
@@ -63,7 +77,7 @@
         </table>
 
         {{-- ปุ่ม Save ต้องมี type="submit" --}}
-        <button type="submit" class="btn btn-success mt-3">💾 Save All</button>
+        <button type="submit" id="btn-save-all" class="btn btn-success">Save All</button>
     </form>
 </div>
 @if ($errors->any())

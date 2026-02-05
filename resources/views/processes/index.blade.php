@@ -93,7 +93,7 @@
                             <th class="ps-4">Time</th>
                             <th>Product</th>
                             <th>Type</th>
-                            <th>Outlet</th>
+                            <th>Outlet Request</th>
                             <th>Staff</th>
                             <th class="text-center">Qty</th>
                             <th class="text-end pe-4">Actions</th>
@@ -106,8 +106,24 @@
                                 <td><strong>{{ $process->productUnit->product->name }}</strong>
                                 <small class="text-muted"> {{ $process->productUnit->product->description }} <strong>{{ $process->productUnit->name }}</strong></small>
                                 </td>
-                                <td><span class="badge bg-info text-dark">{{ strtoupper($process->process->name) }}</span>
-                                </td>
+                                <td class="small">
+    @if(strtolower($process->process->name) === 'transfer')
+        {{-- ถ้าเป็นรายการโอน --}}
+        <div class="d-flex align-items-center">
+            <span class="badge bg-light text-primary border">
+                {{ $process->fromOutlet->name ?? 'Unknown Source' }}
+            </span>
+            <i class="bi bi-arrow-right mx-2 text-muted"></i>
+            <span class="badge bg-light text-success border">
+                {{ $process->outlet->name }}
+            </span>
+        </div>
+    @else
+        {{-- รายการปกติ --}}
+        {{ $process->outlet->name }}
+    @endif
+</td>
+                                
                                 <td class="small">{{ $process->outlet->name }}</td>
                                 <td>{{ $process->employee->name }}</td>
                                 <td class="text-center fw-bold">{{ $process->quantity }}</td>

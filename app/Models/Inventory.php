@@ -13,6 +13,7 @@ class Inventory extends Model
         'process_id',
         'quantity',
         'status',
+        'from_outlet_id',
         'approved_by',
         'approved_at',
         'created_at',
@@ -24,6 +25,10 @@ class Inventory extends Model
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
     ];
+    public function fromOutlet()
+{
+    return $this->belongsTo(Outlet::class, 'from_outlet_id');
+}
 
 
     public function outlet()

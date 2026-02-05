@@ -20,37 +20,39 @@ class ProcessController extends Controller
 {
     public function index()
 {
-    // ดึงเฉพาะรายการที่ยัง pending
-    $allProcesses = Inventory::with(['process', 'productUnit.product', 'outlet', 'employee', 'to_outlet'])
+    $userOutletId = Auth::user()->employee->outlet_id;
+
+    // ดึงเฉพาะรายการที่ยัง pending พร้อมโหลดความสัมพันธ์ fromOutlet
+    $allProcesses = Inventory::with(['process', 'productUnit.product', 'outlet', 'employee', 'fromOutlet'])
         ->where('status', 'pending')
         ->orderBy('created_at', 'desc')
         ->get();
 
-   $openProcesses = $allProcesses->where('process.name', 'open')
-   ->where('outlet_id', Auth::user()->employee->outlet_id)
-    ->groupBy(function($item) {
-        // ตรวจสอบว่าถ้าเป็น String ให้ parse ก่อน ถ้าเป็น Object อยู่แล้วก็เรียก format ได้เลย
+    // 1. กลุ่ม Open (เบิกของภายในสาขาตัวเอง)
+    $openProcesses = $allProcesses->filter(function ($item) use ($userOutletId) {
+        return strtolower($item->process->name) === 'open' && $item->outlet_id == $userOutletId;
+    })->groupBy(function($item) {
         return \Carbon\Carbon::parse($item->created_at)->format('Y-m-d');
     });
 
-    // 2. แยกกลุ่มอื่นๆ: กรองเอาทุกอย่างที่ไม่ใช่ 'open' (เช่น transfer, sell, spoil)
-   $otherProcesses = $allProcesses->filter(function ($item) {
-    $processName = strtolower($item->process->name);
-    $userOutletId = Auth::user()->employee->outlet_id;
+    // 2. กลุ่ม Others (Transfer, Sell, Spoil)
+    $otherProcesses = $allProcesses->filter(function ($item) use ($userOutletId) {
+        $processName = strtolower($item->process->name);
 
-    // เงื่อนไขที่ 1: ถ้าเป็นรายการขาย (sell) หรือ เสีย (spoil) ให้แสดงปกติ
-    if (in_array($processName, ['sell', 'spoil'])) {
-        return true;
-    }
+        // ถ้าเป็น Sell หรือ Spoil: แสดงเฉพาะของสาขาตัวเอง
+        if (in_array($processName, ['sell', 'spoil'])) {
+            return $item->outlet_id == $userOutletId;
+        }
 
-    // เงื่อนไขที่ 2: ถ้าเป็นรายการโอน (transfer) 
-    // ต้องไม่ใช่ 'open' และ Outlet ปลายทาง (outlet_id ใน inventory) ต้องไม่ใช่ของตัวเอง
-    if ($processName === 'transfer') {
-        return $item->outlet_id != $userOutletId;
-    }
+        // ถ้าเป็น Transfer: 
+        // แสดงรายการที่ "ส่งมาหาเรา" (outlet_id ของเรา)
+        // หรือถ้าอยากให้เห็นรายการที่ "เราส่งออกไป" เพื่อติดตามสถานะ ก็สามารถทำได้
+        if ($processName === 'transfer') {
+            return $item->outlet_id == $userOutletId || $item->from_outlet_id == $userOutletId;
+        }
 
-    return $processName !== 'open';
-});
+        return false;
+    });
 
     return view('processes.index', compact('openProcesses', 'otherProcesses'));
 }
@@ -159,6 +161,7 @@ public function storeBulk(Request $request)
         'items.*.product_unit_id' => 'required|exists:product_units,id',
         'items.*.quantity' => 'required|numeric|min:0.01',
         'items.*.process_id' => 'required|exists:processes,id',
+        'items.*.from_outlet_id' => 'nullable|exists:outlets,id',
         'items.*.created_at' => 'nullable|date',
     ]);
 
@@ -179,6 +182,7 @@ public function storeBulk(Request $request)
                     'quantity'        => $qty,
                     'process_id'      => $item['process_id'],
                     'outlet_id'       => Auth::user()->employee->outlet_id ?? null,
+                    'from_outlet_id' => $item['from_outlet_id'] ?? null,
                     'employee_id'     => Auth::user()->employee->id ?? null,
                     'status'          => in_array(strtolower($process->name), ['open', 'transfer']) 
                                          ? 'pending' 
