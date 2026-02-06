@@ -107,27 +107,53 @@
                             </td>
 
                             {{-- 🔵 ช่อง TRANSFER --}}
-                            <td class="text-end text-info">
-                                @php
-                                    $transferItems = $rows->filter(fn($r) => $r->process && $r->process->name === 'transfer');
-                                    $transApprover = $transferItems->whereNotNull('approved_by')->first()?->approvedBy?->employee;
-                                    
-        $transferItems = $rows->filter(fn($r) => $r->process && strtolower($r->process->name) === 'transfer')->unique('id');
+<td class="text-end text-info">
+    @php
         $myOutletId = Auth::user()->employee->outlet_id;
+        // กรองเฉพาะ Transfer และ unique ID ป้องกันข้อมูลซ้ำ
+        $transferItems = $rows->filter(fn($r) => $r->process && strtolower($r->process->name) === 'transfer')->unique('id');
 
-        // 2. เช็คว่ามีรายการ "โอนออก" ในกลุ่มนี้ไหม
-        $isTransferOut = $transferItems->contains(fn($item) => $item->from_outlet_id == $myOutletId);
-                                @endphp
-                                {!! format_process_units($transferItems->groupBy(fn($r) => $r->productUnit->name)->map(fn($u) => $u->sum('quantity'))) !!}
-                                <br>  @foreach($transferItems as $item)
-            <div style="font-size: 0.65rem; line-height: 1.1;" class="mb-1">
-                @if($item->from_outlet_id && $item->from_outlet_id != $myOutletId)
-                    <span class="text-success"><i class="bi bi-arrow-down-left"></i>  {{ $item->fromOutlet->name ?? 'Unknown' }}</span>
-                @elseif($item->from_outlet_id == $myOutletId)
-                    <span class="text-warning"><i class="bi bi-arrow-up-right"></i> {{ $item->outlet->name ?? 'Unknown' }}</span>
-                @endif
-            </div>
-        @endforeach
+        // คำนวณยอดรวมรายวัน (เพื่อแสดงตัวเลขใหญ่ด้านบน)
+        $dailySummary = $transferItems->groupBy(fn($r) => $r->productUnit->name)
+            ->map(function($unitRows) use ($myOutletId) {
+                return $unitRows->sum(fn($item) => ($item->from_outlet_id == $myOutletId) ? -abs($item->quantity) : abs($item->quantity));
+            });
+    @endphp
+
+    @if($transferItems->isNotEmpty())
+        {{-- 1. แสดงยอดรวมสุทธิของวันนั้น --}}
+        <strong class="d-block">
+            {!! format_process_units($dailySummary) !!}
+        </strong>
+
+        <div class="mt-1 border-top pt-1">
+            @foreach($transferItems as $item)
+                @php 
+                    $isOut = ($item->from_outlet_id == $myOutletId);
+                    $displayQty = ($isOut ? '-' : '+') . abs($item->quantity);
+                @endphp
+                
+                <div style="font-size: 0.65rem; line-height: 1.2;" class="mb-1">
+                    @if(!$isOut)
+                        {{-- กรณีรับเข้า --}}
+                        <span class="text-success">
+                            <i class="bi bi-arrow-down-left"></i> 
+                            <strong>{{ $displayQty }}</strong> {{ $item->productUnit->name }} 
+                            <br>From: {{ $item->fromOutlet->name ?? 'N/A' }}
+                        </span>
+                    @else
+                        {{-- กรณีส่งออก --}}
+                        <span class="text-warning">
+                            <i class="bi bi-arrow-up-right"></i> 
+                            <strong>{{ $displayQty }}</strong> {{ $item->productUnit->name }}
+                            <br>To: {{ $item->outlet->name ?? 'N/A' }}
+                        </span>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+</td>
 
                                 
                             </td>

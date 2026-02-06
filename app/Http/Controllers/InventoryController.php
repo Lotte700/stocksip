@@ -143,28 +143,45 @@ class InventoryController extends Controller
      */
  public function show(Request $request, $productId)
 {
-    
     $outletId = Auth::user()->employee->outlet_id;
-    
     $month = $request->get('month', now()->format('Y-m'));
     $start = Carbon::parse($month)->startOfMonth();
     $end   = Carbon::parse($month)->endOfMonth();
 
-    // 1. ดึงข้อมูลพร้อมโหลดความสัมพันธ์
-    $allData = Inventory::with(['productUnit.product.productUnits','approvedBy.employee', 'process',])
+    // 1. ดึงข้อมูล (ปรับเงื่อนไขให้ดึงทั้งขาเข้าและขาออก)
+    $allData = Inventory::with([
+            'productUnit.product.productUnits',
+            'approvedBy.employee', 
+            'process',
+            'fromOutlet', // 👈 เพิ่ม
+            'outlet'      // 👈 เพิ่ม
+        ])
         ->where('status', 'approved')
-        ->where('outlet_id', $outletId)
+        ->where(function($q) use ($outletId) {
+            $q->where('outlet_id', $outletId)      // เราเป็นปลายทาง (รับเข้า)
+              ->orWhere('from_outlet_id', $outletId); // เราเป็นต้นทาง (ส่งออก)
+        })
         ->whereHas('productUnit', fn ($q) => $q->where('product_id', $productId))
         ->get();
 
-    // 2. หาข้อมูลหน่วยเพื่อใช้กำหนดลำดับ (สำคัญมาก)
+    // 2. ข้อมูลหน่วยและ Ratio
     $product = \App\Models\Product::with('productUnits')->find($productId);
-    $allUnits = $product->productUnits->sortByDesc('ml'); // [Bottle, Glass]
+    $allUnits = $product->productUnits->sortByDesc('ml');
     $bigUnitName = $allUnits->first()->name;
     $smallUnitName = $allUnits->last()->name;
     $baseRatio = ($allUnits->last()->ml > 0) ? ($allUnits->first()->ml / $allUnits->last()->ml) : 1;
 
-    // ฟังก์ชันช่วยจัดเรียง Array ให้หน่วยใหญ่ขึ้นก่อนเสมอ
+    // ฟังก์ชันคำนวณยอด Balance (ต้องเช็คว่าถ้าเราเป็นคนส่ง ยอดต้องติดลบ)
+    $calculateRawBalance = function($items) use ($outletId) {
+        return $items->groupBy(fn ($r) => $r->productUnit->name)
+            ->map(function ($unitRows) use ($outletId) {
+                return $unitRows->sum(function($row) use ($outletId) {
+                    // ถ้าเราเป็น from_outlet (คนส่ง) ให้ยอดติดลบ
+                    return ($row->from_outlet_id == $outletId) ? -abs($row->quantity) : abs($row->quantity);
+                });
+            });
+    };
+
     $normalizeUnits = function($data) use ($bigUnitName, $smallUnitName) {
         return [
             $bigUnitName => $data[$bigUnitName] ?? 0,
@@ -172,39 +189,14 @@ class InventoryController extends Controller
         ];
     };
 
-    /**
-     * 3. Opening Balance (จัดเรียงหน่วยใหม่)
-     */
-    $rawOpening = $allData->where('created_at', '<', $start)
-        ->groupBy(fn ($r) => $r->productUnit->name)
-        ->map(fn ($unitRows) => $unitRows->sum('quantity'));
-    
-    $openingBalance = $normalizeUnits($rawOpening);
+    $openingBalance = $normalizeUnits($calculateRawBalance($allData->where('created_at', '<', $start)));
+    $closingBalance = $normalizeUnits($calculateRawBalance($allData->where('created_at', '<=', $end)));
 
-    /**
-     * 4. In Month (จัดกลุ่มตามวัน)
-     */
+    // จัดกลุ่มรายวัน
     $inMonth = $allData->whereBetween('created_at', [$start, $end])
         ->sortBy('created_at')
         ->groupBy(fn ($r) => substr($r->created_at, 0, 10));
 
-    /**
-     * 5. Closing Balance (จัดเรียงหน่วยใหม่)
-     */
-    $rawClosing = $allData->where('created_at', '<=', $end)
-        ->groupBy(fn ($r) => $r->productUnit->name)
-        ->map(fn ($unitRows) => $unitRows->sum('quantity'));
-
-    $closingBalance = $normalizeUnits($rawClosing);
-
-    return view('inventories.show', compact(
-        'inMonth',
-        'openingBalance',
-        'closingBalance',
-        'month',
-        'baseRatio',
-        'bigUnitName',
-        'smallUnitName' // ส่งชื่อหน่วยไปช่วยจัดลำดับใน Blade ด้วย
-    ));
+    return view('inventories.show', compact('inMonth', 'openingBalance', 'closingBalance', 'month', 'baseRatio', 'bigUnitName', 'smallUnitName'));
 }
 }
