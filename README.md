@@ -9,7 +9,6 @@
 <img src="https://img.shields.io/badge/Laravel-Framework-red">
 <img src="https://img.shields.io/badge/PHP-Backend-blue">
 <img src="https://img.shields.io/badge/MySQL-Database-orange">
-<img src="https://img.shields.io/badge/License-MIT-green">
 </p>
 
 ---
@@ -101,3 +100,15 @@
 
 ```bash
 git clone https://github.com/Lotte700/stocksip.git
+git composer install
+npm install
+
+##💻 ตัวอย่าง Code ที่สำคัญ (Core Logic)
+### ตัวอย่างฟังก์ชัน Helper ในการแปลงหน่วยสินค้าที่เป็นหัวใจหลักของระบบ:
+
+public static function formatUnit($total_quantity, $conversion_rate)
+{
+    $bottles = floor($total_quantity / $conversion_rate);
+    $glasses = $total_quantity % $conversion_rate;
+    return "{$bottles} ขวด, {$glasses} แก้ว";
+}
