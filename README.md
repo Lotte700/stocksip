@@ -1,6 +1,4 @@
-<p align="center">
-<a href="#"><img src="https://img.icons8.com/external-flat-icons-inmotus-design/512/external-bar-bar-flat-icons-inmotus-design.png" width="220" alt="StockSip Logo"></a>
-</p>
+
 
 <h1 align="center">🍷 StockSip</h1>
 <p align="center">
